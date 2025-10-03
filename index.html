@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vintage Instant Click Camera</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Updated Font: Mitr (Supports Thai characters and is modern/clean) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        // Using Mitr for both general text and the stylized captions
+                        sans: ['Mitr', 'sans-serif'],
+                        vintage: ['Mitr', 'sans-serif'], 
+                    },
+                    colors: {
+                        'camera-body': '#282828',
+                        'camera-panel': '#4b5563',
+                        'shutter-red': '#f87171',
+                        'shutter-hover': '#ef4444',
+                        // Note: photo-frame is white, but we'll use bg-white utility class for robustness in the modal.
+                        'photo-frame': '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Global Background */
+        body {
+            background: linear-gradient(135deg, #e0e0e0 0%, #f7f7f7 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center everything now that header is gone */
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem; /* Reduced padding as camera is smaller */
+            overflow: hidden; 
+            position: relative; /* Needed for the absolute firework overlay */
+        }
+
+        /* NEW FIREWORK/CELEBRATION CSS (Subtle sparkle and pulse effect) */
+        #firework-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 90; /* Below modal (100) but above camera (10) */
+            opacity: 0;
+            transition: opacity 1.5s ease;
+            /* Radial gradient simulates a warm, pulsing light */
+            background: radial-gradient(circle at 50% 50%, rgba(255, 204, 0, 0.05), rgba(255, 100, 0, 0.02) 50%, transparent 100%);
+        }
+
+        #firework-overlay.active {
+            opacity: 1;
+            animation: celebrate-pulse 4s infinite alternate;
+        }
+
+        @keyframes celebrate-pulse {
+            0% {
+                transform: scale(1);
+                filter: hue-rotate(0deg);
+            }
+            100% {
+                transform: scale(1.05);
+                filter: hue-rotate(360deg);
+            }
+        }
+
+        /* Simple star/sparkle effect */
+        #firework-overlay::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                /* Small colorful sparks */
+                radial-gradient(2px 2px at 20% 80%, #ffcc00, transparent),
+                radial-gradient(3px 3px at 70% 30%, #ff6600, transparent),
+                radial-gradient(1px 1px at 45% 10%, #cc00ff, transparent),
+                radial-gradient(4px 4px at 90% 60%, #00ffcc, transparent);
+            background-size: 150px 150px;
+            animation: sparkle-move 10s infinite linear;
+        }
+
+        @keyframes sparkle-move {
+            0% { background-position: 0 0; }
+            100% { background-position: 150px 150px; }
+        }
+        /* END NEW FIREWORK/CELEBRATION CSS */
+
+
+        /* 1. Camera Ejection Animation (Adjusted for smaller size) */
+        @keyframes eject {
+            0% {
+                transform: translateX(-50%) translateY(0) rotate(0deg);
+                filter: brightness(0.8);
+            }
+            100% {
+                /* Moves the picture further out (adjusted from 280px to 230px) */
+                transform: translateX(-50%) translateY(230px) rotate(3deg); 
+                filter: brightness(1) drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
+            }
+        }
+
+        /* 2. Camera Body (Smaller Size: 260x310) */
+        #camera {
+            position: relative;
+            width: 260px; 
+            height: 310px;
+            background: radial-gradient(circle at top left, #3a3a3a, #1a1a1a);
+            border-radius: 20px;
+            box-shadow: 
+                inset 0 0 10px rgba(255, 255, 255, 0.1), 
+                0 20px 40px rgba(0, 0, 0, 0.6);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: not-allowed; 
+        }
+
+        /* Styling when enabled */
+        #camera.enabled {
+            cursor: pointer;
+        }
+
+        #camera.enabled:hover {
+            transform: translateY(-5px);
+            box-shadow: 
+                inset 0 0 10px rgba(255, 255, 255, 0.1),
+                0 25px 50px rgba(0, 0, 0, 0.7);
+        }
+
+        /* 3. Lens Styling (Smaller Size: 110x110) */
+        .lens-assembly {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -60%);
+            width: 110px; 
+            height: 110px;
+            background: #0d0d0d;
+            border-radius: 50%;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8), inset 0 0 8px #000;
+        }
+
+        .lens-glass {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 60% 40%, rgba(255, 255, 255, 0.3), rgba(0, 0, 0, 0.7) 70%);
+            border: 2px solid #111;
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9);
+        }
+
+        /* 4. Shutter Button */
+        #shutter-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 20px;
+            background-color: var(--tw-colors-shutter-red);
+            border-radius: 6px;
+            border: none;
+            outline: none;
+            box-shadow: 0 3px 0 var(--tw-colors-shutter-hover);
+            transition: all 0.1s ease;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        #shutter-btn.enabled {
+            cursor: pointer;
+            opacity: 1;
+        }
+
+        #shutter-btn.enabled:active {
+            transform: translateY(3px); 
+            box-shadow: none;
+        }
+
+        /* 5. Output Slot */
+        #output-slot {
+            position: absolute;
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            height: 12px;
+            background: #111;
+            border-radius: 0 0 8px 8px;
+            z-index: 10; 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 6. The Photo Container (for Ejection animation) */
+        #picture {
+            position: absolute;
+            top: 250px; 
+            left: 50%;
+            transform: translateX(-50%) translateY(0) rotate(0deg);
+            width: 230px; 
+            height: 290px;
+            background-color: var(--tw-colors-photo-frame);
+            padding: 12px 12px 40px 12px; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 0;
+            opacity: 0; 
+            pointer-events: none;
+            transition: opacity 0.5s linear;
+        }
+        
+        #picture.ejected {
+            animation: eject 2s forwards;
+            opacity: 1;
+            z-index: 5;
+        }
+
+        #photo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 2px;
+            /* Filter applied to mimic a polaroid film look */
+            filter: sepia(0.1) brightness(1.05); 
+            background-color: #f3f4f6;
+        }
+
+        /* 7. Decorative Red Tape */
+        .red-tape {
+            position: absolute;
+            top: 40px; 
+            right: 5px; 
+            padding: 3px 6px;
+            background-color: #ef4444; 
+            color: white;
+            font-size: 9px; 
+            font-family: 'vintage', sans-serif;
+            border-radius: 4px;
+            transform: rotate(5deg); 
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+            z-index: 20;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        /* 8. Focused Photo Modal Styling */
+        #focused-photo-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        #focused-photo-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #focused-picture-container {
+            width: 90vw;
+            max-width: 400px; /* Max size for a comfortable zoom view */
+            height: auto;
+            transform: scale(0.5);
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth zoom effect */
+            position: relative;
+        }
+        
+        #focused-photo-modal.show #focused-picture-container {
+            transform: scale(1);
+        }
+
+        .focused-picture-content {
+            /* Removing reliance on CSS variable and just setting padding/shadow here */
+            padding: 15px 15px 60px 15px; /* Thicker bottom border */
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: -35px;
+            right: 0px;
+            background: none;
+            color: white;
+            font-size: 30px;
+            border: none;
+            cursor: pointer;
+            padding: 5px 15px;
+            transition: color 0.2s;
+            font-weight: 300;
+            line-height: 1;
+            outline: none;
+        }
+
+        .close-btn:hover {
+            color: #ef4444; /* Red hover for flair */
+        }
+        
+        /* Responsive adjustments for focused view */
+        @media (max-width: 600px) {
+            #focused-picture-container {
+                max-width: 85vw;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body class="font-sans">
+    
+    <!-- NEW: Firework/Celebration Overlay (Invisible by default) -->
+    <div id="firework-overlay"></div>
+
+    <!-- Camera Container -->
+    <div id="camera-container" class="relative flex justify-center items-center mt-6">
+        
+        <!-- The Photo (Used for Ejection animation, remains behind the camera after ejecting) -->
+        <div id="picture" class="flex flex-col">
+            <img id="photo-image" src="" alt="Polaroid photo content" class="flex-grow">
+            <!-- Updated caption text color to black for better contrast on white frame -->
+            <div id="photo-caption" class="text-xs font-vintage text-center pt-1 text-black italic">...developing...</div>
+        </div>
+
+        <!-- The Camera Body -->
+        <div id="camera" class="z-10">
+            <!-- Red Decorative Tape: Now uses an ID for dynamic updates -->
+            <div class="red-tape">
+                <span id="red-tape-text">
+                    <!-- Text is dynamically inserted by JS countdown -->
+                    Initializing...
+                </span>
+            </div>
+
+            <!-- Lens Assembly -->
+            <div class="lens-assembly">
+                <div class="lens-glass"></div>
+            </div>
+
+            <!-- Viewfinder and Flash Area -->
+            <div class="absolute top-4 left-4 w-4/5 h-8 flex items-center justify-between">
+                <!-- Viewfinder -->
+                <div class="w-10 h-5 bg-camera-body border-2 border-gray-600/50 rounded-lg shadow-inner flex justify-center items-center">
+                    <div class="w-1 h-1 rounded-full bg-gray-500"></div>
+                </div>
+                <!-- Logo -->
+                <div class="text-base font-extrabold text-gray-500/70 tracking-widest">Pin's Polaroid</div>
+                <!-- Shutter Light -->
+                <div class="w-3 h-3 rounded-full bg-yellow-400/80 shadow-lg"></div>
+            </div>
+            
+            <!-- Shutter Button (The main click target) -->
+            <button id="shutter-btn" title="Take Photo"></button>
+
+            <!-- Output Slot -->
+            <div id="output-slot"></div>
+        </div>
+    </div>
+    
+    <!-- Status Message -->
+    <div id="status-message" class="mt-10 text-base font-bold text-gray-700 h-6 text-center w-full max-w-lg px-4">
+        Initializing time circuit...
+    </div>
+
+    <!-- 9. Focused Photo Modal (Initially hidden) -->
+    <div id="focused-photo-modal" class="hidden">
+        <div id="focused-picture-container">
+            <!-- Close Button -->
+            <button id="close-btn" class="close-btn" title="Close Photo and Prepare for Next Shot">
+                &times;
+            </button>
+            
+            <!-- ADDED bg-white class here to force the polaroid frame background to white -->
+            <div class="focused-picture-content flex flex-col bg-white">
+                <!-- Image for the focused view -->
+                <img id="focused-image" src="" alt="Focused Polaroid Photo" class="w-full h-auto object-cover rounded-md filter sepia-[0.1] brightness-[1.05]">
+                
+                <!-- Caption for the focused view: text-black is already set here for contrast -->
+                <div id="focused-caption" class="text-base font-vintage text-center pt-3 text-black font-semibold"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const cameraEl = document.getElementById('camera');
+            const shutterBtn = document.getElementById('shutter-btn');
+            const pictureEl = document.getElementById('picture');
+            const photoImageEl = document.getElementById('photo-image');
+            const photoCaptionEl = document.getElementById('photo-caption');
+            const statusMessageEl = document.getElementById('status-message');
+            const focusedPhotoModalEl = document.getElementById('focused-photo-modal');
+            const closeBtn = document.getElementById('close-btn');
+            const redTapeTextEl = document.getElementById('red-tape-text');
+            const fireworkOverlayEl = document.getElementById('firework-overlay'); // NEW: Firework element
+            
+            // Elements inside the modal
+            const focusedImageEl = document.getElementById('focused-image');
+            const focusedCaptionEl = document.getElementById('focused-caption');
+            
+            // --- TIME LOCK CONFIGURATION ---
+            // Target time set to 18:00:00 (6 PM) on 2025-10-03
+            const targetDate = new Date('2025-10-03T18:00:00'); 
+            let isCameraEnabled = false;
+            // -------------------------------
+            
+            // --- CUSTOM PICTURE PROMPTS AND LOOPING INDEX ---
+            const customPrompts = [
+                "ถึงอยู่ไกลแต่ใจยังจะรัก",
+                "ถึงเรียนหนักก็คุยกันไม่จางหาย",
+                "ถึงเจอปัญหาก็ช่วยกันไม่เสื่อมคราย",
+                "จะไม่หายไปไหนอยู่ด้วยกันไปนานๆ",
+                "Wish your wish, that always come true.",
+                "When feel blue remember, you have me.",
+                "Work will hard but you pass, guarantee.",
+                "Stay with me, unless I have boyfriend."
+            ];
+
+            // Global index to track which picture/prompt is next (0 to 7)
+            let currentPictureIndex = 0;
+            // ------------------------------------------------
+            
+            /**
+             * Updates the photo display (hidden behind the camera initially) 
+             * with the image and caption corresponding to the currentPictureIndex.
+             * This function DOES NOT increment the index.
+             */
+            function setPhotoUI() {
+                // Remove ejection class to allow animation to re-run on next shot
+                pictureEl.classList.remove('ejected');
+                
+                // 1. Determine image and caption based on current index
+                // Image index is 1-based (1.jpg to 8.jpg)
+                const index = currentPictureIndex % customPrompts.length;
+                const imageFileNumber = index + 1; 
+                const imageUrl = `${imageFileNumber}.jpg`; // Loads files like 1.jpg, 2.jpg, etc.
+                
+                // Caption uses 0-based index
+                const currentCaption = customPrompts[index];
+
+                // 2. Apply to photo elements
+                photoImageEl.src = imageUrl; 
+                photoCaptionEl.textContent = currentCaption;
+                
+                console.log(`[UI Updated] Next photo ready: ${imageFileNumber}.jpg / Index ${index}`);
+            }
+
+            function showPhotoModal() {
+                // Copy content to the modal elements
+                focusedImageEl.src = photoImageEl.src;
+                focusedCaptionEl.textContent = focusedCaptionEl.textContent;
+
+                // Show the modal and trigger the zoom effect
+                focusedPhotoModalEl.classList.remove('hidden');
+                setTimeout(() => focusedPhotoModalEl.classList.add('show'), 10);
+                
+                // Prevent scrolling when modal is active
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closePhotoModal() {
+                // Hide the modal with transition
+                focusedPhotoModalEl.classList.remove('show');
+                
+                // Turn off firework effect when closing the modal, regardless of which photo it was
+                fireworkOverlayEl.classList.remove('active');
+                
+                // Delay hiding the modal element until the CSS transition is complete (400ms)
+                setTimeout(() => {
+                    focusedPhotoModalEl.classList.add('hidden');
+                    
+                    // Reset the camera and photo state for the next shot
+                    pictureEl.classList.remove('ejected');
+                    statusMessageEl.textContent = isCameraEnabled ? "Ready to shoot!" : "Time Lock Active. Waiting...";
+                    document.body.style.overflow = 'auto';
+                }, 400); 
+            }
+
+            // Function to handle taking the picture (only if enabled)
+            const takePicture = () => {
+                if (!isCameraEnabled) {
+                    console.log("Camera is locked until the target time.");
+                    return;
+                }
+
+                // Check if an animation is currently running or modal is visible
+                if (pictureEl.classList.contains('ejected') && pictureEl.getAnimations().some(animation => animation.playState === 'running') || focusedPhotoModalEl.classList.contains('show')) {
+                    statusMessageEl.textContent = "Wait, it's still busy!";
+                    setTimeout(() => statusMessageEl.textContent = "Ready to shoot!", 2000);
+                    return;
+                }
+                
+                // Check if the current photo being prepared is the 8th photo (index 7)
+                const isEighthPhoto = currentPictureIndex % customPrompts.length === 7;
+
+                // 1. Prepare the current picture UI (this uses the current index)
+                setPhotoUI();
+                
+                // 2. Apply firework effect and update status message accordingly
+                if (isEighthPhoto) {
+                    fireworkOverlayEl.classList.add('active');
+                    statusMessageEl.textContent = "Photo taken! 🎉 CELEBRATION MODE ENGAGED! 🎉";
+                } else {
+                    // Ensure the firework effect is off for photos 1 through 7
+                    fireworkOverlayEl.classList.remove('active'); 
+                    statusMessageEl.textContent = "Photo taken! Ejecting film...";
+                }
+
+                // 3. Increment index *after* the picture is set up, ready for the *next* shot
+                currentPictureIndex = (currentPictureIndex + 1) % customPrompts.length;
+                console.log(`[Shot Taken] Index incremented to ${currentPictureIndex} for next shot.`);
+
+                // 4. Start the ejection animation
+                setTimeout(() => {
+                    pictureEl.classList.add('ejected');
+                    // Use the focused caption content to ensure it matches the ejected photo
+                    focusedCaptionEl.textContent = photoCaptionEl.textContent; 
+                    statusMessageEl.textContent = "Developing...";
+                }, 200);
+
+                // 5. Reset the state after the animation completes and show modal
+                setTimeout(() => {
+                    statusMessageEl.textContent = "Developed! Focusing on the memory...";
+                    showPhotoModal(); 
+                }, 2200); // 200ms ejection delay + 2000ms animation duration = 2200ms
+            };
+            
+            const attachClickHandlers = () => {
+                cameraEl.addEventListener('click', takePicture);
+                shutterBtn.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    takePicture();
+                });
+                
+                // Attach close handler to the 'X' button
+                closeBtn.addEventListener('click', closePhotoModal);
+                
+                // Allow closing by clicking the dark overlay
+                focusedPhotoModalEl.addEventListener('click', (event) => {
+                    // Only close if the click target is the modal background itself
+                    if (event.target.id === 'focused-photo-modal') {
+                        closePhotoModal();
+                    }
+                });
+            };
+
+            function formatTime(ms) {
+                const totalSeconds = Math.floor(ms / 1000);
+                const days = Math.floor(totalSeconds / (3600 * 24));
+                const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+
+                let output = "";
+                if (days > 0) output += `${days}d `;
+                output += `${String(hours).padStart(2, '0')}:`;
+                output += `${String(minutes).padStart(2, '0')}:`;
+                output += `${String(seconds).padStart(2, '0')}`;
+                
+                return output;
+            }
+
+            // Countdown Logic
+            const countdownInterval = setInterval(() => {
+                const now = new Date();
+                const timeDifference = targetDate.getTime() - now.getTime();
+
+                if (timeDifference <= 0) {
+                    // --- TIME REACHED: ENABLE CAMERA ---
+                    clearInterval(countdownInterval);
+                    isCameraEnabled = true;
+                    
+                    // Update UI state
+                    cameraEl.classList.add('enabled');
+                    shutterBtn.classList.add('enabled');
+                    
+                    statusMessageEl.innerHTML = "<span class='text-red-600'>The moment is here!</span> Capturing first memory...";
+                    
+                    // Update red tape text when time is reached
+                    redTapeTextEl.innerHTML = "MEMORIES UNLOCKED!"; 
+
+                    // Automatically take the first picture (1.jpg) when unlocked
+                    takePicture(); 
+                    
+                } else {
+                    // --- COUNTDOWN ACTIVE ---
+                    const remainingTime = formatTime(timeDifference);
+                    
+                    // Update the status message below the camera
+                    statusMessageEl.innerHTML = `**Time Lock Active:** Unlocks in <span class="text-xl text-blue-600">${remainingTime}</span>`;
+                    
+                    // Update the red tape message
+                    redTapeTextEl.innerHTML = `Calling the memories<br>Please come back at ${remainingTime}`;
+                }
+            }, 1000);
+
+            // Initial setup: Set the hidden photo state to 1.jpg (index 0) 
+            // without incrementing the counter.
+            setPhotoUI(); 
+            attachClickHandlers(); 
+        });
+    </script>
+</body>
+</html>
